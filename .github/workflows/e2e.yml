@@ -1,0 +1,60 @@
+name: E2E
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        env:
+          CI: true
+          BASE_URL: http://127.0.0.1:3000
+        run: npx playwright test --reporter=line,html
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.node }}
+          path: playwright-report
+          retention-days: 7
+
+      - name: Upload Traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-${{ matrix.node }}
+          path: test-results/**/*.zip
+
+      - name: Upload Screenshots & Videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-${{ matrix.node }}
+          path: test-results/**
+          if-no-files-found: ignore
+
